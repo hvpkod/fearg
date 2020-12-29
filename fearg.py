@@ -77,7 +77,7 @@ def get_path(inputdata):
         print("File or Directory dont exists")
 
 
-def setstructure(albumindata):
+def set_structure(albumindata):
     """Create skeleton for json-structure."""
     albumdata = {}
     albumdata["rootsource"] = albumindata[0].split("/")[0]
@@ -88,37 +88,34 @@ def setstructure(albumindata):
     outputdata["filedata"] = []
 
 
-def createColor(colormix, name, px):
+def create_color(colormix, name, px):
     """Create two sets of img as color representation and diversion."""
     if slip_flag:
         tmpim = Image.new("RGB", (len(colormix) * 50, 50))
-        makedirectory()
+        make_directory()
         offset = 0
         offset2 = 0
         totalpx = sum(px)
 
-        try:
-            for i, c in enumerate(colormix):
-                tmpc = Image.new("RGB", (50, 40), c)
-                tmpim.paste(tmpc, (offset, 0))
-                offset += 50
-            for i, c in enumerate(colormix):
-                tmpwidth = int(len(colormix) * 51 * (px[i] / totalpx))
-                tmpcs = Image.new("RGB", (tmpwidth, 10), c)
-                tmpim.paste(tmpcs, (offset2, 40))
-                offset2 += tmpwidth
-            tmpim.save("colorexport/_" + name + ".png")
-        except Exception as e:
-            print(e)
+        for i, c in enumerate(colormix):
+            tmpc = Image.new("RGB", (50, 40), c)
+            tmpim.paste(tmpc, (offset, 0))
+            offset += 50
+        for i, c in enumerate(colormix):
+            tmpwidth = int(len(colormix) * 51 * (px[i] / totalpx))
+            tmpcs = Image.new("RGB", (tmpwidth, 10), c)
+            tmpim.paste(tmpcs, (offset2, 40))
+            offset2 += tmpwidth
+        tmpim.save("colorexport/_" + name + ".png")
     else:
         print("No colorslips created")
 
 
-def getmetadata(meta):
+def get_metadata(meta):
     """Extract metadata from from img file with focus on colors."""
     img_info = {}
     img_info_tmp = {}
-    im = Image.open(meta)
+    im = Image.open(meta).convert("RGB")
     color = Counter(im.getdata())
     color_common = color.most_common(10)
     img_info["numbercolors"] = len(color)
@@ -150,18 +147,18 @@ def getmetadata(meta):
         color_info["textcontrast"] = (
             "#5d5d5d" if (R * 0.299 + G * 0.587 + B * 0.114) > 186 else "#ededed"
         )
-        hex = "#%02x%02x%02x" % (rgb_value)
+        hex = "#%02x%02x%02x" % (rgb_value[:3])
         color_info["hex"] = hex
         img_info_tmp["rgbs"].append(rgb_value)
         color_info["%"] = "%0.2f" % (pixel_count / img_pixels * 100.0)
         color_meta.append(color_info)
         xc_tmp.append(pixel_count)
-    createColor(img_info_tmp["rgbs"], img_info["imgstem"], xc_tmp)
+    create_color(img_info_tmp["rgbs"], img_info["imgstem"], xc_tmp)
     img_info["colormeta"] = color_meta
     outputdata["filedata"].append(img_info)
 
 
-def printoutlist():
+def print_list():
     """Print to console. For multiple files."""
     headers = ["", "Color 1", "Color 2", "Color 3", "Filename"]
 
@@ -182,7 +179,7 @@ def printoutlist():
         r1, g1, b1 = color[0]["rgb"]
         col1_hex_text = color[0]["textcontrast"]
         col1_hex_c = C().b_hex(c1hex, rgb_mode=True).hex(col1_hex_text, c1hex)
-        col1_rgb_c = C().b_rgb(r1, g1, b1).hex(col1_hex_text, col1_rgb)
+        col1_rgb_c = C().b_rgb(r1, g1, b1).hex(col1_hex_text, col1_rgb.ljust(15, " "))
 
         col2_hex_c = ""
         col2_rgb_c = ""
@@ -193,7 +190,9 @@ def printoutlist():
             r2, g2, b2 = color[1]["rgb"]
             col2_hex_text = color[1]["textcontrast"]
             col2_hex_c = C().b_hex(col2_hex, rgb_mode=True).hex(col2_hex_text, col2_hex)
-            col2_rgb_c = C().b_rgb(r2, g2, b2).hex(col2_hex_text, col2_rgb)
+            col2_rgb_c = (
+                C().b_rgb(r2, g2, b2).hex(col2_hex_text, col2_rgb.ljust(15, " "))
+            )
 
         col3_hex_c = ""
         col3_rgb_c = ""
@@ -204,10 +203,12 @@ def printoutlist():
             r3, g3, b3 = color[2]["rgb"]
             col3_hex_text = color[2]["textcontrast"]
             col3_hex_c = C().b_hex(col3_hex, rgb_mode=True).hex(col3_hex_text, col3_hex)
-            col3_rgb_c = C().b_rgb(r3, g3, b3).hex(col3_hex_text, col3_rgb)
+            col3_rgb_c = (
+                C().b_rgb(r3, g3, b3).hex(col3_hex_text, col3_rgb.ljust(15, " "))
+            )
 
         print(
-            "# {:<3d}{:7}{:16}{:7}{:16}{:7}{:16}{:<}".format(
+            "# {:<4d}{:7}{:16}{:7}{:16}{:7}{:16}{:<}".format(
                 i + 1,
                 col1_hex_c,
                 col1_rgb_c,
@@ -220,7 +221,7 @@ def printoutlist():
         )
 
 
-def printoutextended():
+def print_extended():
     """Print color into to terminal. For single files or extend info."""
     print("Rootsource", outputdata["albumdata"]["rootsource"])
     print("Date: {}".format(outputdata["albumdata"]["date"]))
@@ -252,19 +253,19 @@ def printoutextended():
         print("=" * 50)
 
 
-def makedirectory():
+def make_directory():
     """Directory validation."""
     Path("colorexport").mkdir(parents=True, exist_ok=True)
 
 
 def main(indata):
     """Program main."""
-    setstructure(indata)
+    set_structure(indata)
 
     try:
-        for index, i in enumerate(indata):
-            print("Img {} out of {} - {}".format(index + 1, len(indata), i))
-            getmetadata(i)
+        for i, d in enumerate(indata):
+            print("Img {} out of {} - {}".format(i + 1, len(indata), d))
+            get_metadata(d)
         print("> All processed")
         print("=" * 50, "\n")
     except Exception as e:
@@ -275,9 +276,9 @@ def main(indata):
     else:
         print("No json file created")
     if verbose_flag:
-        printoutextended()
+        print_extended()
     else:
-        printoutlist()
+        print_list()
 
 
 if __name__ == "__main__":

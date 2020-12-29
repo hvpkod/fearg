@@ -9,33 +9,33 @@ from colr import Colr as C
 from PIL import Image
 
 outputdata = {}
-verboseflag = False
-jsonflag = True
-slipflag = True
+verbose_flag = False
+json_flag = True
+slip_flag = True
 timestamp = str(datetime.datetime.now())
 date = str(datetime.date.today())
 
 
 @click.command()
-@click.option("--verbose", "--v", is_flag=True, help="Will print extended metadata")
-@click.option("--nojson", is_flag=True, help="Extract no json data file")
-@click.option("--noslip", is_flag=True, help="Extract no color slip")
+@click.option("-verbose", "-v", is_flag=True, help="Will print extended metadata")
+@click.option("-nojson", is_flag=True, help="Extract no json data file")
+@click.option("-noslip", is_flag=True, help="Extract no color slip")
 @click.argument("img")
 def inputvalidate(verbose, nojson, noslip, img):
     """Fearg is a batch tool to get meta data and create color slips."""
     if noslip:
-        global slipflag
-        slipflag = False
+        global slip_flag
+        slip_flag = False
 
     if nojson:
-        global jsonflag
-        jsonflag = False
+        global json_flag
+        json_flag = False
 
     if verbose:
-        global verboseflag
-        verboseflag = True
+        global verbose_flag
+        verbose_flag = True
 
-    getpath(img)
+    get_path(img)
 
 
 def json_export(jsonindata):
@@ -44,21 +44,21 @@ def json_export(jsonindata):
         json.dump(jsonindata, fp)
 
 
-def imgcheck(check):
+def img_check(check):
     """Validate the suffix as img."""
     imgformats = [".png", ".jpg", ".jpeg"]
     return Path(check).suffix.lower() in imgformats
 
 
-def getpath(inputdata):
+def get_path(inputdata):
     """Validate input data."""
     imgs = []
     try:
         if Path(inputdata).exists:
-            if Path(inputdata).is_file() and imgcheck(inputdata):
+            if Path(inputdata).is_file() and img_check(inputdata):
                 print("File input")
-                global verboseflag
-                verboseflag = True
+                global verbose_flag
+                verbose_flag = True
                 imgs.append(inputdata)
             elif Path(inputdata).is_dir():
                 print("Directory input")
@@ -66,7 +66,7 @@ def getpath(inputdata):
                     imgs += [
                         os.path.join(dirpath, file)
                         for file in filenames
-                        if imgcheck(file)
+                        if img_check(file)
                     ]
             else:
                 print("Not a image file")
@@ -90,7 +90,7 @@ def setstructure(albumindata):
 
 def createColor(colormix, name, px):
     """Create two sets of img as color representation and diversion."""
-    if slipflag:
+    if slip_flag:
         tmpim = Image.new("RGB", (len(colormix) * 50, 50))
         makedirectory()
         offset = 0
@@ -98,12 +98,12 @@ def createColor(colormix, name, px):
         totalpx = sum(px)
 
         try:
-            for index, c in enumerate(colormix):
+            for i, c in enumerate(colormix):
                 tmpc = Image.new("RGB", (50, 40), c)
                 tmpim.paste(tmpc, (offset, 0))
                 offset += 50
-            for index, c in enumerate(colormix):
-                tmpwidth = int(len(colormix) * 51 * (px[index] / totalpx))
+            for i, c in enumerate(colormix):
+                tmpwidth = int(len(colormix) * 51 * (px[i] / totalpx))
                 tmpcs = Image.new("RGB", (tmpwidth, 10), c)
                 tmpim.paste(tmpcs, (offset2, 40))
                 offset2 += tmpwidth
@@ -116,49 +116,49 @@ def createColor(colormix, name, px):
 
 def getmetadata(meta):
     """Extract metadata from from img file with focus on colors."""
-    imgInfo = {}
-    imgInfotmp = {}
+    img_info = {}
+    img_info_tmp = {}
     im = Image.open(meta)
     color = Counter(im.getdata())
-    colorcommon = color.most_common(10)
-    imgInfo["numbercolors"] = len(color)
-    imgsize = im.size
-    imgwidth, imgheight = im.size
-    imgpixels = imgheight * imgwidth
-    imgInfo["imgsrc"] = str(Path(meta))
-    imgname = str(Path(meta).name.lower())
-    imgstem = str(Path(meta).stem.lower())
-    imgInfo["imgname"] = imgname
-    imgInfo["imgtype"] = str(Path(meta).suffix.lower())
-    imgInfo["imgstem"] = imgstem
-    imgInfo["imgsize"] = imgsize
-    imgInfo["imgwidth"] = imgwidth
-    imgInfo["imgheight"] = imgheight
-    imgInfo["imgpixels"] = imgpixels
-    imgInfotmp["rgbs"] = []
-    tmpxc = []
-    colormeta = []
-    for c in colorcommon:
-        colorinfo = {}
-        rgbvalue, pixelcount = c
-        R, G, B = rgbvalue
-        colorinfo["px#"] = pixelcount
-        colorinfo["rgb"] = rgbvalue
-        colorinfo["r"] = R
-        colorinfo["g"] = G
-        colorinfo["b"] = B
-        colorinfo["textcontrast"] = (
+    color_common = color.most_common(10)
+    img_info["numbercolors"] = len(color)
+    img_size = im.size
+    img_width, imgheight = im.size
+    img_pixels = imgheight * img_width
+    img_info["imgsrc"] = str(Path(meta))
+    img_name = str(Path(meta).name.lower())
+    img_stem = str(Path(meta).stem.lower())
+    img_info["imgname"] = img_name
+    img_info["imgtype"] = str(Path(meta).suffix.lower())
+    img_info["imgstem"] = img_stem
+    img_info["imgsize"] = img_size
+    img_info["imgwidth"] = img_width
+    img_info["imgheight"] = imgheight
+    img_info["imgpixels"] = img_pixels
+    img_info_tmp["rgbs"] = []
+    xc_tmp = []
+    color_meta = []
+    for c in color_common:
+        color_info = {}
+        rgb_value, pixel_count = c
+        R, G, B = rgb_value
+        color_info["px#"] = pixel_count
+        color_info["rgb"] = rgb_value
+        color_info["r"] = R
+        color_info["g"] = G
+        color_info["b"] = B
+        color_info["textcontrast"] = (
             "#5d5d5d" if (R * 0.299 + G * 0.587 + B * 0.114) > 186 else "#ededed"
         )
-        hex = "#%02x%02x%02x" % (rgbvalue)
-        colorinfo["hex"] = hex
-        imgInfotmp["rgbs"].append(rgbvalue)
-        colorinfo["%"] = "%0.2f" % (pixelcount / imgpixels * 100.0)
-        colormeta.append(colorinfo)
-        tmpxc.append(pixelcount)
-    createColor(imgInfotmp["rgbs"], imgInfo["imgstem"], tmpxc)
-    imgInfo["colormeta"] = colormeta
-    outputdata["filedata"].append(imgInfo)
+        hex = "#%02x%02x%02x" % (rgb_value)
+        color_info["hex"] = hex
+        img_info_tmp["rgbs"].append(rgb_value)
+        color_info["%"] = "%0.2f" % (pixel_count / img_pixels * 100.0)
+        color_meta.append(color_info)
+        xc_tmp.append(pixel_count)
+    createColor(img_info_tmp["rgbs"], img_info["imgstem"], xc_tmp)
+    img_info["colormeta"] = color_meta
+    outputdata["filedata"].append(img_info)
 
 
 def printoutlist():
@@ -177,44 +177,44 @@ def printoutlist():
         data = outputdata["filedata"][i]
         color = outputdata["filedata"][i]["colormeta"]
 
-        c1rgb = str(color[0]["rgb"])
+        col1_rgb = str(color[0]["rgb"])
         c1hex = color[0]["hex"]
         r1, g1, b1 = color[0]["rgb"]
-        c1hextext = color[0]["textcontrast"]
-        c1hexc = C().b_hex(c1hex, rgb_mode=True).hex(c1hextext, c1hex)
-        c1rgbc = C().b_rgb(r1, g1, b1).hex(c1hextext, c1rgb)
+        col1_hex_text = color[0]["textcontrast"]
+        col1_hex_c = C().b_hex(c1hex, rgb_mode=True).hex(col1_hex_text, c1hex)
+        col1_rgb_c = C().b_rgb(r1, g1, b1).hex(col1_hex_text, col1_rgb)
 
-        c2hexc = ""
-        c2rgbc = ""
+        col2_hex_c = ""
+        col2_rgb_c = ""
 
         if data["numbercolors"] > 1:
-            c2rgb = str(color[1]["rgb"])
-            c2hex = color[1]["hex"]
+            col2_rgb = str(color[1]["rgb"])
+            col2_hex = color[1]["hex"]
             r2, g2, b2 = color[1]["rgb"]
-            c2hextext = color[1]["textcontrast"]
-            c2hexc = C().b_hex(c2hex, rgb_mode=True).hex(c2hextext, c2hex)
-            c2rgbc = C().b_rgb(r2, g2, b2).hex(c2hextext, c2rgb)
+            col2_hex_text = color[1]["textcontrast"]
+            col2_hex_c = C().b_hex(col2_hex, rgb_mode=True).hex(col2_hex_text, col2_hex)
+            col2_rgb_c = C().b_rgb(r2, g2, b2).hex(col2_hex_text, col2_rgb)
 
-        c3hexc = ""
-        c3rgbc = ""
+        col3_hex_c = ""
+        col3_rgb_c = ""
 
         if data["numbercolors"] > 2:
-            c3rgb = str(color[2]["rgb"])
-            c3hex = color[2]["hex"]
+            col3_rgb = str(color[2]["rgb"])
+            col3_hex = color[2]["hex"]
             r3, g3, b3 = color[2]["rgb"]
-            c3hextext = color[2]["textcontrast"]
-            c3hexc = C().b_hex(c3hex, rgb_mode=True).hex(c3hextext, c3hex)
-            c3rgbc = C().b_rgb(r3, g3, b3).hex(c3hextext, c3rgb)
+            col3_hex_text = color[2]["textcontrast"]
+            col3_hex_c = C().b_hex(col3_hex, rgb_mode=True).hex(col3_hex_text, col3_hex)
+            col3_rgb_c = C().b_rgb(r3, g3, b3).hex(col3_hex_text, col3_rgb)
 
         print(
             "# {:<3d}{:7}{:16}{:7}{:16}{:7}{:16}{:<}".format(
                 i + 1,
-                c1hexc,
-                c1rgbc,
-                c2hexc,
-                c2rgbc,
-                c3hexc,
-                c3rgbc,
+                col1_hex_c,
+                col1_rgb_c,
+                col2_hex_c,
+                col2_rgb_c,
+                col3_hex_c,
+                col3_rgb_c,
                 data["imgname"],
             )
         )
@@ -270,11 +270,11 @@ def main(indata):
     except Exception as e:
         print(e)
 
-    if jsonflag:
+    if json_flag:
         json_export(outputdata)
     else:
         print("No json file created")
-    if verboseflag:
+    if verbose_flag:
         printoutextended()
     else:
         printoutlist()

@@ -8,41 +8,6 @@ import click
 from colr import Colr as C
 from PIL import Image
 
-outputdata = {}
-verbose_flag = False
-json_flag = True
-slip_flag = True
-timestamp = str(datetime.datetime.now())
-date = str(datetime.date.today())
-
-
-@click.command()
-@click.option("-verbose", "-v", is_flag=True, help="Will print extended metadata")
-@click.option("-nojson", is_flag=True, help="Extract no json data file")
-@click.option("-noslip", is_flag=True, help="Extract no color slip")
-@click.argument("img")
-def inputvalidate(verbose, nojson, noslip, img):
-    """Fearg is a batch tool to get meta data and create color slips."""
-    if noslip:
-        global slip_flag
-        slip_flag = False
-
-    if nojson:
-        global json_flag
-        json_flag = False
-
-    if verbose:
-        global verbose_flag
-        verbose_flag = True
-
-    get_path(img)
-
-
-def json_export(jsonindata):
-    """Dump output to file as json."""
-    with open(date + "_imgdata.json", "w") as fp:
-        json.dump(jsonindata, fp)
-
 
 def img_check(check):
     """Validate the suffix as img."""
@@ -57,8 +22,6 @@ def get_path(inputdata):
         if Path(inputdata).exists:
             if Path(inputdata).is_file() and img_check(inputdata):
                 print("File input")
-                global verbose_flag
-                verbose_flag = True
                 imgs.append(inputdata)
             elif Path(inputdata).is_dir():
                 print("Directory input")
@@ -71,7 +34,7 @@ def get_path(inputdata):
             else:
                 print("Not a image file")
                 exit()
-        main(imgs)
+        return imgs
 
     except FileNotFoundError:
         print("File or Directory dont exists")
@@ -79,39 +42,41 @@ def get_path(inputdata):
 
 def set_structure(albumindata):
     """Create skeleton for json-structure."""
+    timestamp = str(datetime.datetime.now())
+    date = str(datetime.date.today())
+
     albumdata = {}
     albumdata["rootsource"] = albumindata[0].split("/")[0]
     albumdata["files"] = len(albumindata)
     albumdata["Timestamp"] = timestamp
     albumdata["date"] = date
-    outputdata["albumdata"] = albumdata
-    outputdata["filedata"] = []
+    return albumdata
 
 
-def create_color(colormix, name, px):
+def create_color_slip(colormix, name, px):
     """Create two sets of img as color representation and diversion."""
-    if slip_flag:
-        tmpim = Image.new("RGB", (len(colormix) * 50, 50))
-        make_directory()
-        offset = 0
-        offset2 = 0
-        totalpx = sum(px)
+    color_slip_base = Image.new("RGB", (len(colormix) * 50, 50))
+    make_directory()
+    offset = 0
+    offset2 = 0
+    totalpx = sum(px)
 
-        for i, c in enumerate(colormix):
-            tmpc = Image.new("RGB", (50, 40), c)
-            tmpim.paste(tmpc, (offset, 0))
-            offset += 50
-        for i, c in enumerate(colormix):
-            tmpwidth = int(len(colormix) * 51 * (px[i] / totalpx))
-            tmpcs = Image.new("RGB", (tmpwidth, 10), c)
-            tmpim.paste(tmpcs, (offset2, 40))
-            offset2 += tmpwidth
-        tmpim.save("colorexport/_" + name + ".png")
-    else:
-        print("No colorslips created")
+    # Create color slip with up to 10 colors, equal size.
+    for i, c in enumerate(colormix):
+        tmpc = Image.new("RGB", (50, 40), c)
+        color_slip_base.paste(tmpc, (offset, 0))
+        offset += 50
+
+    # Create color slip with up to 10 color, % based size.
+    for i, c in enumerate(colormix):
+        tmpwidth = int(len(colormix) * 51 * (px[i] / totalpx))
+        tmpcs = Image.new("RGB", (tmpwidth, 10), c)
+        color_slip_base.paste(tmpcs, (offset2, 40))
+        offset2 += tmpwidth
+    color_slip_base.save("colorexport/_" + name + ".png")
 
 
-def get_metadata(meta):
+def get_metadata(meta, slip_no_flag):
     """Extract metadata from from img file with focus on colors."""
     img_info = {}
     img_info_tmp = {}
@@ -133,7 +98,7 @@ def get_metadata(meta):
     img_info["imgheight"] = imgheight
     img_info["imgpixels"] = img_pixels
     img_info_tmp["rgbs"] = []
-    xc_tmp = []
+    color_slip_input = []
     color_meta = []
     for c in color_common:
         color_info = {}
@@ -141,38 +106,37 @@ def get_metadata(meta):
         R, G, B = rgb_value
         color_info["px#"] = pixel_count
         color_info["rgb"] = rgb_value
-        color_info["r"] = R
-        color_info["g"] = G
-        color_info["b"] = B
         color_info["textcontrast"] = (
             "#5d5d5d" if (R * 0.299 + G * 0.587 + B * 0.114) > 186 else "#ededed"
         )
-        hex = "#%02x%02x%02x" % (rgb_value[:3])
+        hex = "#%02x%02x%02x" % (rgb_value)
         color_info["hex"] = hex
         img_info_tmp["rgbs"].append(rgb_value)
         color_info["%"] = "%0.2f" % (pixel_count / img_pixels * 100.0)
         color_meta.append(color_info)
-        xc_tmp.append(pixel_count)
-    create_color(img_info_tmp["rgbs"], img_info["imgstem"], xc_tmp)
+        color_slip_input.append(pixel_count)
     img_info["colormeta"] = color_meta
-    outputdata["filedata"].append(img_info)
+    if slip_no_flag is False:
+        create_color_slip(img_info_tmp["rgbs"], img_info["imgstem"], color_slip_input)
+
+    return img_info
 
 
-def print_list():
+def print_list(printdata):
     """Print to console. For multiple files."""
     headers = ["", "Color 1", "Color 2", "Color 3", "Filename"]
 
-    print("Rootsource", outputdata["albumdata"]["rootsource"])
-    print("Date: {}".format(outputdata["albumdata"]["date"]))
+    print("Rootsource", printdata["albumdata"]["rootsource"])
+    print("Date: {}".format(printdata["albumdata"]["date"]))
 
     print("")
     print("> Img data")
-    print("{:5}{:23}{:23}{:23}{:<}".format(*headers))
+    print("{:6}{:23}{:23}{:23}{:<}".format(*headers))
 
-    for i in range(len(outputdata["filedata"])):
+    for i in range(len(printdata["filedata"])):
 
-        data = outputdata["filedata"][i]
-        color = outputdata["filedata"][i]["colormeta"]
+        data = printdata["filedata"][i]
+        color = printdata["filedata"][i]["colormeta"]
 
         col1_rgb = str(color[0]["rgb"])
         c1hex = color[0]["hex"]
@@ -184,6 +148,7 @@ def print_list():
         col2_hex_c = ""
         col2_rgb_c = ""
 
+        # Handle the scenario with less then 3 colors.
         if data["numbercolors"] > 1:
             col2_rgb = str(color[1]["rgb"])
             col2_hex = color[1]["hex"]
@@ -221,14 +186,14 @@ def print_list():
         )
 
 
-def print_extended():
+def print_extended(printdata):
     """Print color into to terminal. For single files or extend info."""
-    print("Rootsource", outputdata["albumdata"]["rootsource"])
-    print("Date: {}".format(outputdata["albumdata"]["date"]))
+    print("Rootsource", printdata["albumdata"]["rootsource"])
+    print("Date: {}".format(printdata["albumdata"]["date"]))
 
-    for i in range(len(outputdata["filedata"])):
+    for i in range(len(printdata["filedata"])):
 
-        data = outputdata["filedata"][i]
+        data = printdata["filedata"][i]
         print("")
         print("Filename:            {}".format(data["imgname"]))
         print("Fileformat:          {}".format(data["imgtype"]))
@@ -240,7 +205,7 @@ def print_extended():
         print("_" * 50)
         print("")
 
-        color = outputdata["filedata"][i]["colormeta"]
+        color = printdata["filedata"][i]["colormeta"]
         for index, c in enumerate(color):
             print("Color    {}:".format(index + 1))
             print(C().b_hex(c["hex"], rgb_mode=True).hex(c["hex"], " " * 30))
@@ -258,28 +223,54 @@ def make_directory():
     Path("colorexport").mkdir(parents=True, exist_ok=True)
 
 
-def main(indata):
-    """Program main."""
-    set_structure(indata)
+def json_export(jsonindata):
+    """Dump output to file as json."""
+    date = str(datetime.date.today())
+
+    with open(date + "_imgdata.json", "w") as fp:
+        json.dump(jsonindata, fp)
+
+
+@click.command()
+@click.option("-verbose", "-v", is_flag=True, help="Will print extended metadata")
+@click.option("-nojson", is_flag=True, help="Extract no json data file")
+@click.option("-noslip", is_flag=True, help="Extract no color slip")
+@click.argument("img")
+def main(verbose, nojson, noslip, img):
+    """Fearg is a batch tool to get meta data and create color slips."""
+
+    outputdata = {}
+
+    # List of validated img files.
+    validated_img = get_path(img)
+    if len(validated_img) == 1:
+        verbose = True
+
+    structure = set_structure(validated_img)
+    outputdata["albumdata"] = structure
+    outputdata["filedata"] = []
 
     try:
-        for i, d in enumerate(indata):
-            print("Img {} out of {} - {}".format(i + 1, len(indata), d))
-            get_metadata(d)
+        for i, d in enumerate(validated_img):
+            print("Img {} out of {} - {}".format(i + 1, len(validated_img), d))
+            outputdata["filedata"].append(get_metadata(d, noslip))
         print("> All processed")
         print("=" * 50, "\n")
-    except Exception as e:
-        print(e)
+    except Exception:
+        pass
 
-    if json_flag:
-        json_export(outputdata)
-    else:
+    if noslip is True:
+        print("No color slip created, skipping")
+
+    if nojson:
         print("No json file created")
-    if verbose_flag:
-        print_extended()
     else:
-        print_list()
+        json_export(outputdata)
+    if verbose:
+        print_extended(outputdata)
+    else:
+        print_list(outputdata)
 
 
 if __name__ == "__main__":
-    inputvalidate()
+    main()

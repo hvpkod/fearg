@@ -76,13 +76,21 @@ def create_color_slip(colormix, name, px):
     color_slip_base.save("colorexport/_" + name + ".png")
 
 
-def get_metadata(meta, slip_no_flag):
+def get_metadata(meta, slip_no_flag, color_flag):
     """Extract metadata from from img file with focus on colors."""
     img_info = {}
     img_info_tmp = {}
     im = Image.open(meta).convert("RGB")
     color = Counter(im.getdata())
-    color_common = color.most_common(10)
+    color = color.most_common(10000)
+    color = dict(color)
+    if len(color) > 1000 and color_flag:
+        colorstmpset = set(dict(color).keys())
+        remove = colorstmpset.intersection(wb)
+        for r in remove:
+            del color[r]
+    color = Counter(color)
+    color_common = color.most_common(100)
     img_info["numbercolors"] = len(color)
     img_size = im.size
     img_width, imgheight = im.size
@@ -235,11 +243,17 @@ def json_export(jsonindata):
 @click.option("-verbose", "-v", is_flag=True, help="Will print extended metadata")
 @click.option("-nojson", is_flag=True, help="Extract no json data file")
 @click.option("-noslip", is_flag=True, help="Extract no color slip")
+@click.option("-color", "-c", is_flag=True, help="Remove black and white colors")
 @click.argument("img")
-def main(verbose, nojson, noslip, img):
+def main(verbose, nojson, noslip, color, img):
     """Fearg is a batch tool to get meta data and create color slips."""
 
     outputdata = {}
+    if color:
+        global wb
+        with open("wb.json", "r") as f:
+            wbtmp = json.loads(f.read())
+        wb = set(tuple(x) for x in wbtmp)
 
     # List of validated img files.
     validated_img = get_path(img)
@@ -253,7 +267,7 @@ def main(verbose, nojson, noslip, img):
     try:
         for i, d in enumerate(validated_img):
             print("Img {} out of {} - {}".format(i + 1, len(validated_img), d))
-            outputdata["filedata"].append(get_metadata(d, noslip))
+            outputdata["filedata"].append(get_metadata(d, noslip, color))
         print("> All processed")
         print("=" * 50, "\n")
     except Exception:

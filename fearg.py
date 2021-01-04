@@ -8,6 +8,13 @@ import click
 from colr import Colr as C
 from PIL import Image
 
+if Path("settings1.py").is_file():
+    import settings
+
+    nosettings = False
+else:
+    nosettings = True
+
 
 def img_check(check):
     """Validate the suffix as img."""
@@ -76,7 +83,7 @@ def create_color_slip(colormix, name, px):
     color_slip_base.save("colorexport/_" + name + ".png")
 
 
-def get_metadata(meta, slip_no_flag, color_flag):
+def get_metadata(meta, number_of_colors, slip_no_flag, color_flag):
     """Extract metadata from from img file with focus on colors."""
     img_info = {}
     img_info_tmp = {}
@@ -84,13 +91,18 @@ def get_metadata(meta, slip_no_flag, color_flag):
     color = Counter(im.getdata())
     color = color.most_common(10000)
     color = dict(color)
-    if len(color) > 1000 and color_flag:
+    color_tmp = color.copy()
+    # Remove black and white colors
+    if len(color) >= number_of_colors and color_flag:
         colorstmpset = set(dict(color).keys())
         remove = colorstmpset.intersection(wb)
         for r in remove:
             del color[r]
+        # For grayscale img
+        if len(color) == 0:
+            color = color_tmp
     color = Counter(color)
-    color_common = color.most_common(100)
+    color_common = color.most_common(number_of_colors)
     img_info["numbercolors"] = len(color)
     img_size = im.size
     img_width, imgheight = im.size
@@ -210,20 +222,17 @@ def print_extended(printdata):
         print("Width:               {}".format(data["imgwidth"]))
         print("Height:              {}".format(data["imgheight"]))
         print("Pixels:              {}".format(data["imgpixels"]))
-        print("_" * 50)
         print("")
 
         color = printdata["filedata"][i]["colormeta"]
         for index, c in enumerate(color):
-            print("Color    {}:".format(index + 1))
-            print(C().b_hex(c["hex"], rgb_mode=True).hex(c["hex"], " " * 30))
-            print("Hex:     {}".format(c["hex"]))
-            print("RGB:     {}".format(c["rgb"]))
-            print("%:       {}".format(c["%"]))
-            print("px:      {}".format(c["px#"]))
+            print("Color {}: px:{} %:{}".format(index + 1, c["px#"], c["%"]))
+            print("Hex:{} RGB:{}".format(c["hex"], c["rgb"]))
+            print(C().b_hex(c["hex"], rgb_mode=True).hex(c["hex"], " " * 31))
+
             print("")
 
-        print("=" * 50)
+        print("_" * 50)
 
 
 def make_directory():
@@ -247,8 +256,13 @@ def json_export(jsonindata):
 @click.argument("img")
 def main(verbose, nojson, noslip, color, img):
     """Fearg is a batch tool to get meta data and create color slips."""
+    # Settings
+    if nosettings:
+        number_of_colors = 10
+    else:
+        number_of_colors = settings.color
 
-    outputdata = {}
+    # Dataset for black/white
     if color:
         global wb
         with open("wb.json", "r") as f:
@@ -260,18 +274,16 @@ def main(verbose, nojson, noslip, color, img):
     if len(validated_img) == 1:
         verbose = True
 
+    outputdata = {}
     structure = set_structure(validated_img)
     outputdata["albumdata"] = structure
     outputdata["filedata"] = []
 
-    try:
-        for i, d in enumerate(validated_img):
-            print("Img {} out of {} - {}".format(i + 1, len(validated_img), d))
-            outputdata["filedata"].append(get_metadata(d, noslip, color))
-        print("> All processed")
-        print("=" * 50, "\n")
-    except Exception:
-        pass
+    for i, d in enumerate(validated_img):
+        print("Img {} out of {} - {}".format(i + 1, len(validated_img), d))
+        outputdata["filedata"].append(get_metadata(d, number_of_colors, noslip, color))
+    print("> All processed")
+    print("=" * 50, "\n")
 
     if noslip is True:
         print("No color slip created, skipping")

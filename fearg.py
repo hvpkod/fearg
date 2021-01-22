@@ -8,7 +8,7 @@ import click
 from colr import Colr as C
 from PIL import Image
 
-if Path("settings1.py").is_file():
+if Path("settings.py").is_file():
     import settings
 
     nosettings = False
@@ -48,7 +48,7 @@ def get_path(inputdata):
 
 
 def set_structure(albumindata):
-    """Create skeleton for json-structure."""
+    """Create json-structure."""
     timestamp = str(datetime.datetime.now())
     date = str(datetime.date.today())
 
@@ -60,30 +60,30 @@ def set_structure(albumindata):
     return albumdata
 
 
-def create_color_slip(colormix, name, px):
-    """Create two sets of img as color representation and diversion."""
-    color_slip_base = Image.new("RGB", (len(colormix) * 50, 50))
+def create_color_palette(colormix, name, px):
+    """Create img color sample card."""
+    color_palette_base = Image.new("RGB", (len(colormix) * 50, 50))
     make_directory()
     offset = 0
     offset2 = 0
     totalpx = sum(px)
 
-    # Create color slip with up to 10 colors, equal size.
+    # Create color palette sample card, equal size.
     for i, c in enumerate(colormix):
         tmpc = Image.new("RGB", (50, 40), c)
-        color_slip_base.paste(tmpc, (offset, 0))
+        color_palette_base.paste(tmpc, (offset, 0))
         offset += 50
 
-    # Create color slip with up to 10 color, % based size.
+    # Create color palette sample card, % based size.
     for i, c in enumerate(colormix):
         tmpwidth = int(len(colormix) * 51 * (px[i] / totalpx))
         tmpcs = Image.new("RGB", (tmpwidth, 10), c)
-        color_slip_base.paste(tmpcs, (offset2, 40))
+        color_palette_base.paste(tmpcs, (offset2, 40))
         offset2 += tmpwidth
-    color_slip_base.save("colorexport/_" + name + ".png")
+    color_palette_base.save("colorexport/_" + name + ".png")
 
 
-def get_metadata(meta, number_of_colors, slip_no_flag, color_flag):
+def get_metadata(meta, number_of_colors, nopalette_flag, color_flag):
     """Extract metadata from from img file with focus on colors."""
     img_info = {}
     img_info_tmp = {}
@@ -118,7 +118,7 @@ def get_metadata(meta, number_of_colors, slip_no_flag, color_flag):
     img_info["imgheight"] = imgheight
     img_info["imgpixels"] = img_pixels
     img_info_tmp["rgbs"] = []
-    color_slip_input = []
+    color_palette_input = []
     color_meta = []
     for c in color_common:
         color_info = {}
@@ -134,10 +134,12 @@ def get_metadata(meta, number_of_colors, slip_no_flag, color_flag):
         img_info_tmp["rgbs"].append(rgb_value)
         color_info["%"] = "%0.2f" % (pixel_count / img_pixels * 100.0)
         color_meta.append(color_info)
-        color_slip_input.append(pixel_count)
+        color_palette_input.append(pixel_count)
     img_info["colormeta"] = color_meta
-    if slip_no_flag is False:
-        create_color_slip(img_info_tmp["rgbs"], img_info["imgstem"], color_slip_input)
+    if nopalette_flag is False:
+        create_color_palette(
+            img_info_tmp["rgbs"], img_info["imgstem"], color_palette_input
+        )
 
     return img_info
 
@@ -251,11 +253,13 @@ def json_export(jsonindata):
 @click.command()
 @click.option("-verbose", "-v", is_flag=True, help="Print extended metadata")
 @click.option("-nojson", is_flag=True, help="Skip creating json data file")
-@click.option("-noslip", is_flag=True, help="Skip creating color palette sample cards")
+@click.option(
+    "-nopalette", is_flag=True, help="Skip creating color palette sample cards"
+)
 @click.option("-color", "-c", is_flag=True, help="Remove black and white colors")
 @click.argument("img")
-def main(verbose, nojson, noslip, color, img):
-    """Fearg is a batch tool to get meta data and create color slips."""
+def main(verbose, nojson, nopalette, color, img):
+    """Fearg is a batch tool to get meta data and create color palettes."""
     # Settings
     if nosettings:
         number_of_colors = 10
@@ -281,14 +285,16 @@ def main(verbose, nojson, noslip, color, img):
     outputdata["filedata"] = []
 
     # Get colots from img and create color palette sample cards
-    for i, d in enumerate(validated_img):
-        print("Img {} out of {} - {}".format(i + 1, len(validated_img), d))
-        outputdata["filedata"].append(get_metadata(d, number_of_colors, noslip, color))
+    for i, v in enumerate(validated_img):
+        print("Img {} of {} - {}".format(i + 1, len(validated_img), v))
+        outputdata["filedata"].append(
+            get_metadata(v, number_of_colors, nopalette, color)
+        )
     print("> All processed")
     print("=" * 50, "\n")
 
-    if noslip is True:
-        print("No color slip created, skipping")
+    if nopalette is True:
+        print("No color palette created, skipping")
 
     if nojson:
         print("No json file created")

@@ -249,9 +249,9 @@ def json_export(jsonindata):
 
 
 @click.command()
-@click.option("-verbose", "-v", is_flag=True, help="Will print extended metadata")
-@click.option("-nojson", is_flag=True, help="Extract no json data file")
-@click.option("-noslip", is_flag=True, help="Extract no color slip")
+@click.option("-verbose", "-v", is_flag=True, help="Print extended metadata")
+@click.option("-nojson", is_flag=True, help="Skip creating json data file")
+@click.option("-noslip", is_flag=True, help="Skip creating color palette sample cards")
 @click.option("-color", "-c", is_flag=True, help="Remove black and white colors")
 @click.argument("img")
 def main(verbose, nojson, noslip, color, img):
@@ -274,11 +274,13 @@ def main(verbose, nojson, noslip, color, img):
     if len(validated_img) == 1:
         verbose = True
 
+    # Set data structure
     outputdata = {}
     structure = set_structure(validated_img)
     outputdata["albumdata"] = structure
     outputdata["filedata"] = []
 
+    # Get colots from img and create color palette sample cards
     for i, d in enumerate(validated_img):
         print("Img {} out of {} - {}".format(i + 1, len(validated_img), d))
         outputdata["filedata"].append(get_metadata(d, number_of_colors, noslip, color))
